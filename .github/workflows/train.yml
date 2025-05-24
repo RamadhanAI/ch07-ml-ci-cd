@@ -1,0 +1,31 @@
+name: Train-Model
+on:
+  schedule:
+    - cron: "0 0 * * 0"
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Deps
+        run: pip install -r requirements.txt
+
+      - name: Validate Data
+        run: pytest tests/test_data.py
+
+      - name: Train Model
+        run: python scripts/train.py --data data/latest.csv
+
+      - name: Evaluate
+        id: eval
+        run: |
+          python scripts/evaluate.py --save-metrics metrics.json
+          AUC=$(jq .auc metrics.json)
+          echo "auc=$AUC" >> $GITHUB_OUTPUT
+
+      - name: Conditional Deploy
+        if: ${{ steps.eval.outputs.auc >= 0.85 }}
+        run: python scripts/deploy_model.py

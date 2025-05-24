@@ -1,0 +1,15 @@
+name: Rollback-On-Failure
+on:
+  workflow_run:
+    workflows: ["Deploy"]
+    types: [completed]
+
+jobs:
+  rollback:
+    if: ${{ github.event.workflow_run.conclusion == 'failure' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Revert
+        run: |
+          PREV_GOOD=$(mlflow search --filter "stage='Production' and AUC > 0.85")
+          python scripts/deploy_model.py --run-id $PREV_GOOD
